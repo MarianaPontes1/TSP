@@ -33,20 +33,24 @@ void buscaLocal(Data &data, Solucao *s);
 bool bestImprovementSwap(Data &data, Solucao *s);
 bool bestImprovement2Opt(Data &data, Solucao *s);
 bool bestImprovementOrOpt(Data &data, Solucao *s, int n);
+Solucao perturbacao(Data& data, Solucao s);
+Solucao ils(Data& data, int maxIter, int maxIterIls);
 
 int main(int argc, char** argv) {
 
     auto data = Data(argc, argv[1]);
     data.read();
 
+    Solucao s;
 
-    Solucao solucao_parcial = construcao(data);
-    Solucao *s = &solucao_parcial;
-    s->valorObj = calcularCusto(data, s->sequencia);
-    buscaLocal(data, &solucao_parcial);
-    exibirSolucao(&solucao_parcial);
-    cout<<calcularCusto(data, s->sequencia)<<endl;
+    if(data.getDimension()>=150)
+        s = ils(data, 50, data.getDimension()/2);
+    else
+        s = ils(data, 50, data.getDimension());
 
+    exibirSolucao(&s);
+    cout<<endl<<s.valorObj<<endl<<endl;
+    
     return 0;
 }
 
@@ -143,6 +147,7 @@ Solucao construcao(Data &data)
         inserirNaSolucao(&s, custoInsercao[selecionado].arestaRemovida, custoInsercao[selecionado].noInserido);
         removerDeCL(cl, custoInsercao[selecionado].noInserido);
     }
+    ptr->valorObj = calcularCusto(data, s.sequencia);
     return s;
     
 }
@@ -396,3 +401,110 @@ bool bestImprovementOrOpt(Data &data, Solucao *s, int n)
     return false;
 
 } 
+Solucao perturbacao(Data& data, Solucao s)
+{
+   int tam = s.sequencia.size();
+   int a = max(2, (int)ceil(tam / 10.0));
+   int seq1_tam = 2 + (rand() % (a-1));
+   int seq2_tam = 2 + (rand() % (a-1));
+
+   int index_begin_seq1 = 1 + rand() % (tam-seq1_tam-2);
+   int index_begin_seq2;
+
+   int count = 1;
+   while(count != 0)
+   {
+    count = 0;
+    index_begin_seq2 = 1 + rand() % (tam-seq2_tam-2);
+    for(int i = index_begin_seq1; i<index_begin_seq1+seq1_tam; i++)
+    {
+        for(int j = index_begin_seq2; j<index_begin_seq2+seq2_tam;j++)
+        {
+            if(i == j)
+            {
+                count++;
+            }
+        }
+    }
+   }
+   Solucao new_s;
+   if(index_begin_seq1<index_begin_seq2)
+   {
+    for(int i = 0; i<index_begin_seq1;i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+    for(int i = index_begin_seq2; i<index_begin_seq2+seq2_tam;i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+    for(int i = index_begin_seq1+seq1_tam; i<index_begin_seq2;i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+    for(int i = index_begin_seq1; i<index_begin_seq1+seq1_tam;i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+    for(int i = index_begin_seq2+seq2_tam; i<s.sequencia.size();i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+   }
+   else
+   {
+    for(int i = 0; i<index_begin_seq2;i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+    for(int i = index_begin_seq1; i<index_begin_seq1+seq1_tam;i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+    for(int i = index_begin_seq2+seq2_tam; i<index_begin_seq1;i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+    for(int i = index_begin_seq2; i<index_begin_seq2+seq2_tam;i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+    for(int i = index_begin_seq1+seq1_tam; i<s.sequencia.size();i++)
+    {
+        new_s.sequencia.push_back(s.sequencia[i]);
+    }
+   }
+   new_s.valorObj = calcularCusto(data, new_s.sequencia);
+   return new_s;
+}
+
+
+Solucao ils(Data& data, int maxIter, int maxIterIls)
+{
+    Solucao bestOfAll;
+    bestOfAll.valorObj = INFINITY;
+    for(int i = 0; i < maxIter; i++)
+    {
+        Solucao s = construcao(data);
+        Solucao best = s;
+
+        int iterIls = 0;
+
+        while(iterIls <= maxIterIls)
+        {
+            buscaLocal(data, &s);
+            if(s.valorObj < best.valorObj)
+            {
+                best = s;
+                iterIls = 0;
+            }
+            s = perturbacao(data, best);
+            iterIls++;
+        }
+        if(best.valorObj < bestOfAll.valorObj)
+        {
+            bestOfAll = best;
+        }
+    }
+    return bestOfAll;
+}
